@@ -1,0 +1,49 @@
+%{
+#define YYPARSE yang_parse
+%}
+
+# Hello Yang Parser :)
+#
+#
+
+yang = module !.
+
+module = - 'module' ~{ printf("Error: Expecting 'module'\n"); }
+            identifier  ~{ printf("Error: Expecting <modulename>\n"); }
+            lbrace ~{ printf("Error: Expecting open brace after %s\n", yytext); }
+            stmts*
+            rbrace ~{ printf("Error: Expecting close brace [ last %s ]\n", yytext); }
+
+# Hello Leg :)
+#
+stmts  =   container
+         | leaf 
+
+container =  - 'container'
+                identifier
+                lbrace
+                stmts*
+                rbrace
+
+leaf = - 'leaf' 
+          identifier
+          lbrace
+          stmts2*
+          rbrace
+
+stmts2 =   - 'type' identifier stmtend 
+         | - 'description' string stmtend 
+
+string =  -  '"' < [^\"]* > '"' -
+
+stmtend = - ( ';' )
+
+identifier =  - < ([a-zA-Z][-0-9a-zA-Z:_]+) > -
+
+lbrace = - '{' -
+
+rbrace = - '}' -
+
+- = [ \t\n\r]*
+
+%%

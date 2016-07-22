@@ -1,0 +1,40 @@
+/* a comment */
+// som more
+
+module m1 {
+
+  namespace "mynamespace.com";
+  prefix a;
+
+  /* Linkage stmts */
+
+  import interfaces { // shud come b4 revision
+     prefix if;
+  }
+  include "as";
+
+  /* Meta stmts */
+  organization "ani.com";
+
+  description "hello peg";
+
+  /* Revisions */
+
+  revision 2012-06-15 {
+     description "rev" + "higher thn " + "nex one";
+  }
+
+  revision 2012-05-30 {
+     description "shud come after prev"
+    + "due to chrono chk";
+  }
+
+  /* Body stmts */
+  container c1 {
+     leaf l1 {
+        type t1;
+        tailf:info "leaf info";
+        description "leaf desc";
+     }
+  }
+}

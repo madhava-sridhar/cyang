@@ -1,0 +1,1275 @@
+%{
+#include "main.h"
+%}
+
+# Start
+yang=           (module-stmt !.) | (submodule-stmt !.)
+
+module-stmt   =   optsep
+                  module-keyword
+                  sep
+                  identifier-arg-str    ~{ YPERROR("<module-name>"); }
+                  optsep
+                  '{'
+                      stmtsep
+                      module-header-stmts ~{ YPERROR("module-headers (namespace & prefix)"); }
+                      (
+                         linkage-stmts
+                       | meta-stmts
+                       | revision-stmt stmtsep
+                      )*
+                      body-stmts
+                  '}'
+                  optsep
+
+submodule-stmt  = optsep
+                  submodule-keyword
+                  sep
+                  identifier-arg-str    ~{ YPERROR("<submodule-name>"); }
+                  optsep
+                  '{'
+                      stmtsep
+                      submodule-header-stmts ~{ YPERROR("submodule-headers (belongs-to)"); }
+                      (
+                         linkage-stmts
+                       | meta-stmts
+                       | revision-stmt stmtsep
+                      )*
+                      body-stmts
+                  '}'
+                  optsep
+
+module-header-stmts = # these stmts can appear in any order
+                         (yang-version-stmt stmtsep)?
+                          namespace-stmt stmtsep
+                          prefix-stmt stmtsep
+
+submodule-header-stmts = # these stmts can appear in any order
+                        (yang-version-stmt stmtsep)?
+                         belongs-to-stmt stmtsep     ~{ YPERROR("belongs-to"); }
+
+meta-stmts          = # these stmts can appear in any order
+                        #(organization-stmt stmtsep)?
+                        #(description-stmt stmtsep)?
+                       # (contact-stmt stmtsep)?
+                      #  (reference-stmt stmtsep)?
+                         organization-stmt stmtsep @{ meta_seen("organization");ensure_single(1, "organization"); }
+                       | description-stmt stmtsep  @{ meta_seen("description");ensure_single(2, "description"); }
+                       | contact-stmt stmtsep      @{ meta_seen("contact");ensure_single(3, "contact"); }
+                       | reference-stmt stmtsep    @{ meta_seen("reference");ensure_single(4, "reference"); }
+
+linkage-stmts       = # these stmts can appear in any order
+#( import-stmt stmtsep | include-stmt stmtsep )* @{ linkage_seen(); }
+                           import-stmt stmtsep  @{ linkage_seen("import"); }
+                         | include-stmt stmtsep @{ linkage_seen("include"); }
+
+#revision-stmts      =  (revision-stmt stmtsep )*
+
+body-stmts          = ( ( extension-stmt
+                        | feature-stmt
+                        | identity-stmt
+                        | typedef-stmt
+                        | grouping-stmt
+                        | data-def-stmt
+                        | augment-stmt
+                        | rpc-stmt
+                        | notification-stmt
+                        | deviation-stmt) stmtsep)*
+
+data-def-stmt       =   container-stmt
+                      | leaf-stmt
+                      | leaf-list-stmt
+                      | list-stmt
+                      | choice-stmt
+                      | anyxml-stmt
+                      | uses-stmt
+
+yang-version-stmt   = yang-version-keyword
+                      sep
+                      yang-version-arg-str ~{ YPERROR("yang-version"); }
+                      optsep
+                      stmtend
+
+yang-version-arg-str =   DQUOTE yang-version-arg DQUOTE
+                       | SQUOTE yang-version-arg SQUOTE
+                       | yang-version-arg
+
+yang-version-arg    = '1'
+
+import-stmt         = import-keyword
+                      sep
+                      identifier-arg-str
+                      optsep
+                      '{'
+                          stmtsep
+                          prefix-stmt  ~{ YPERROR("prefix"); }
+                          stmtsep
+                          (revision-date-stmt stmtsep)?
+                      '}'
+
+include-stmt        = include-keyword
+                      sep
+                      identifier-arg-str
+                      optsep
+                      ( ';'
+                       | '{'
+                           stmtsep
+                           (revision-date-stmt stmtsep)?
+                         '}'
+                       )
+
+namespace-stmt      = namespace-keyword
+                      sep
+                      uri-str  ~{ YPERROR("uri-str"); }
+                      optsep
+                      stmtend
+
+
+uri-str             = string  # TODO # < a string that matches the rule URI in RFC 3986 >
+
+prefix-stmt         = prefix-keyword
+                      sep
+                      prefix-arg-str  ~{ YPERROR("prefix-name"); }
+                      optsep
+                      stmtend
+
+belongs-to-stmt     = belongs-to-keyword
+                      sep
+                      identifier-arg-str   ~{ YPERROR("<parent-module-name>"); }
+                      optsep
+                      '{'
+                          stmtsep
+                          prefix-stmt stmtsep  ~{ YPERROR("prefix"); }
+                      '}'
+
+organization-stmt   = organization-keyword
+                      sep
+                      string
+                      optsep
+                      stmtend
+
+contact-stmt        = contact-keyword
+                      sep
+                      string
+                      optsep
+                      stmtend
+
+description-stmt    = description-keyword
+                      sep
+                      jstring+ ~{ YPERROR("string"); }
+                      optsep
+                      stmtend
+
+reference-stmt      = reference-keyword
+                      sep
+                      string
+                      optsep
+                      stmtend
+
+units-stmt          = units-keyword
+                      sep
+                      string
+                      optsep
+                      stmtend
+
+revision-stmt       = revision-keyword  @{ revision_seen(); }
+                      sep
+                      revision-date   { revision_date_chk(yytext); }
+                      optsep
+                      (  ';'
+                       | '{'
+                            stmtsep
+                            (description-stmt stmtsep)?
+                            (reference-stmt stmtsep)?
+                         '}'
+                      )
+
+revision-date       =  date-arg-str
+
+revision-date-stmt  = revision-date-keyword
+                      sep
+                      revision-date
+                      stmtend
+
+extension-stmt      =  extension-keyword
+                       sep
+                       identifier-arg-str
+                       optsep
+                       (  ';'
+                        | '{'
+                            stmtsep
+                            # these stmts can appear in any order
+                            (argument-stmt stmtsep)?
+                            (status-stmt stmtsep)?
+                            (description-stmt stmtsep)?
+                            (reference-stmt stmtsep)?
+                          '}'
+                       )
+
+argument-stmt       = argument-keyword
+                      sep
+                      identifier-arg-str
+                      optsep
+                      (  ';'
+                       | '{'
+                           stmtsep
+                           (yin-element-stmt stmtsep)?
+                         '}'
+                      )
+
+yin-element-stmt    = yin-element-keyword
+                      sep
+                      yin-element-arg-str
+                      stmtend
+
+yin-element-arg-str =   DQUOTE yin-element-arg DQUOTE
+                      | SQUOTE yin-element-arg SQUOTE
+                      | yin-element-arg
+
+yin-element-arg     = true-keyword | false-keyword
+
+identity-stmt       =  identity-keyword
+                       sep
+                       identifier-arg-str
+                       optsep
+                       (  ';'
+                        | '{'
+                             stmtsep
+                             # these stmts can appear in any order
+                             (base-stmt stmtsep)?
+                             (status-stmt stmtsep)?
+                             (description-stmt stmtsep)?
+                             (reference-stmt stmtsep)?
+                          '}'
+                       )
+
+base-stmt           = base-keyword
+                      sep
+                      identifier-ref-arg-str
+                      optsep
+                      stmtend
+
+feature-stmt        = feature-keyword
+                      sep
+                      identifier-arg-str
+                      optsep
+                      (  ';'
+                       | '{'
+                             stmtsep
+                             # these stmts can appear in any order
+                             (if-feature-stmt stmtsep)*
+                             (status-stmt stmtsep)?
+                             (description-stmt stmtsep)?
+                             (reference-stmt stmtsep)?
+                         '}'
+                      )
+
+
+if-feature-stmt     = if-feature-keyword
+                      sep
+                      identifier-ref-arg-str
+                      optsep
+                      stmtend
+
+typedef-stmt        =  typedef-keyword
+                       sep
+                       identifier-arg-str
+                       optsep
+                       '{'
+                           stmtsep
+                           # these stmts can appear in any order
+                           type-stmt stmtsep
+                           (units-stmt stmtsep)?
+                           (default-stmt stmtsep)?
+                           (status-stmt stmtsep)?
+                           (description-stmt stmtsep)?
+                           (reference-stmt stmtsep)?
+                       '}'
+
+type-stmt           = type-keyword
+                      sep
+                      identifier-ref-arg-str
+                      optsep
+                      (  ';'
+                       | '{'
+                             stmtsep
+                             type-body-stmts
+                         '}'
+                      )
+
+type-body-stmts     =  numerical-restrictions
+                     | decimal64-specification
+                     | string-restrictions
+                     | enum-specification
+                     | leafref-specification
+                     | identityref-specification
+                     | instance-identifier-specification
+                     | bits-specification
+                     | union-specification
+
+numerical-restrictions = range-stmt
+                         stmtsep
+
+range-stmt          =  range-keyword
+                       sep
+                       range-arg-str
+                       optsep
+                       (  ';'
+                        | '{'
+                             stmtsep
+                             # these stmts can appear in any order
+                             (error-message-stmt stmtsep)?
+                             (error-app-tag-stmt stmtsep)?
+                             (description-stmt stmtsep)?
+                             (reference-stmt stmtsep)?
+                          '}'
+                        )
+
+decimal64-specification = fraction-digits-stmt
+
+fraction-digits-stmt = fraction-digits-keyword
+                       sep
+                       fraction-digits-arg-str
+                       stmtend
+
+fraction-digits-arg-str =  DQUOTE fraction-digits-arg DQUOTE
+                         | SQUOTE fraction-digits-arg SQUOTE
+                         | fraction-digits-arg
+
+fraction-digits-arg = ( '1' ( '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8')? )
+                      | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
+
+string-restrictions =  # these stmts can appear in any order
+                        (length-stmt stmtsep)?
+                        (pattern-stmt stmtsep)*
+
+length-stmt         =  length-keyword
+                       sep
+                       length-arg-str
+                       optsep
+                       (  ';'
+                        | '{'
+                             stmtsep
+                             # these stmts can appear in any order
+                             (error-message-stmt stmtsep)?
+                             (error-app-tag-stmt stmtsep)?
+                             (description-stmt stmtsep)?
+                             (reference-stmt stmtsep)?
+                          '}'
+                       )
+
+pattern-stmt        = pattern-keyword
+                      sep
+                      string
+                      optsep
+                      (  ';'
+                       | '{'
+                             stmtsep
+                             # these stmts can appear in any order
+                             (error-message-stmt stmtsep)?
+                             (error-app-tag-stmt stmtsep)?
+                             (description-stmt stmtsep)?
+                             (reference-stmt stmtsep)?
+                         '}'
+                      )
+
+default-stmt        = default-keyword
+                      sep
+                      string
+                      stmtend
+
+enum-specification  = (enum-stmt stmtsep)* # TODO: can be only 1 repitition
+
+enum-stmt           =  enum-keyword
+                       sep
+                       string
+                       optsep
+                       (  ';'
+                        | '{'
+                             stmtsep
+                             # these stmts can appear in any order
+                             (value-stmt stmtsep)?
+                             (status-stmt stmtsep)?
+                             (description-stmt stmtsep)?
+                             (reference-stmt stmtsep)?
+                          '}'
+                       )
+
+leafref-specification = # these stmts can appear in any order
+                        path-stmt stmtsep
+                        (require-instance-stmt stmtsep)?
+
+path-stmt           = path-keyword
+                      sep
+                      path-arg-str
+                      stmtend
+
+require-instance-stmt = require-instance-keyword
+                        sep
+                        require-instance-arg-str
+                        stmtend
+
+require-instance-arg-str =  DQUOTE require-instance-arg DQUOTE
+                          | SQUOTE require-instance-arg SQUOTE
+                          | require-instance-arg
+
+require-instance-arg = true-keyword | false-keyword
+
+instance-identifier-specification = (require-instance-stmt stmtsep)?
+
+identityref-specification = base-stmt
+                            stmtsep
+
+union-specification = (type-stmt stmtsep)* # TODO: only 1 rep
+
+bits-specification  = (bit-stmt stmtsep)*  # TODO: only 1 rep
+
+bit-stmt            =  bit-keyword
+                       sep
+                       identifier-arg-str
+                       optsep
+                       (  ';'
+                        | '{'
+                             stmtsep
+                             # these stmts can appear in any order
+                             (position-stmt stmtsep)?
+                             (status-stmt stmtsep)?
+                             (description-stmt stmtsep)?
+                             (reference-stmt stmtsep)?
+                          '}'
+                       )
+
+position-stmt       =  position-keyword
+                       sep
+                       position-value-arg-str
+                       stmtend
+
+position-value-arg-str =   DQUOTE position-value-arg DQUOTE
+                         | SQUOTE position-value-arg SQUOTE
+                         | position-value-arg
+
+position-value-arg  = non-negative-integer-value
+
+status-stmt         =  status-keyword
+                       sep
+                       status-arg-str
+                       stmtend
+
+status-arg-str      =   DQUOTE status-arg DQUOTE
+                      | SQUOTE status-arg SQUOTE
+
+status-arg          =   current-keyword
+                      | obsolete-keyword
+                      | deprecated-keyword
+
+config-stmt         = config-keyword
+                      sep
+                      config-arg-str
+                      stmtend
+
+config-arg-str      =   DQUOTE config-arg DQUOTE
+                      | SQUOTE config-arg SQUOTE
+                      | config-arg
+
+config-arg          =   true-keyword
+                      | false-keyword
+
+mandatory-stmt      =  mandatory-keyword
+                       sep
+                       mandatory-arg-str
+                       stmtend
+
+mandatory-arg-str   =   DQUOTE mandatory-arg DQUOTE
+                      | SQUOTE mandatory-arg SQUOTE
+                      | mandatory-arg
+
+mandatory-arg       =    true-keyword
+                       | false-keyword
+
+presence-stmt       =  presence-keyword
+                       sep
+                       string
+                       stmtend
+
+ordered-by-stmt     =  ordered-by-keyword
+                       sep
+                       ordered-by-arg-str
+                       stmtend
+
+ordered-by-arg-str  =   DQUOTE ordered-by-arg DQUOTE
+                      | SQUOTE ordered-by-arg SQUOTE
+                      | ordered-by-arg
+
+ordered-by-arg      =    user-keyword
+                       | system-keyword
+
+must-stmt           =  must-keyword
+                       sep
+                       string
+                       optsep
+                       (  ';'
+                        | '{'
+                             stmtsep
+                             # these stmts can appear in any order
+                             (error-message-stmt stmtsep)?
+                             (error-app-tag-stmt stmtsep)?
+                             (description-stmt stmtsep)?
+                             (reference-stmt stmtsep)?
+                          '}'
+                       )
+
+error-message-stmt  = error-message-keyword
+                      sep
+                      string
+                      stmtend
+
+error-app-tag-stmt  = error-app-tag-keyword
+                      sep
+                      string
+                      stmtend
+
+min-elements-stmt   = min-elements-keyword
+                      sep
+                      min-value-arg-str
+                      stmtend
+
+min-value-arg-str   =   DQUOTE min-value-arg DQUOTE
+                      | SQUOTE min-value-arg SQUOTE
+                      | min-value-arg
+
+min-value-arg       = non-negative-integer-value
+
+max-elements-stmt   = max-elements-keyword
+                      sep
+                      max-value-arg-str
+                      stmtend
+
+max-value-arg-str   =   DQUOTE max-value-arg DQUOTE
+                      | SQUOTE max-value-arg SQUOTE
+                      | max-value-arg
+
+max-value-arg       =   unbounded-keyword
+                      | positive-integer-value
+
+value-stmt          =  value-keyword
+                       sep
+                       integer-value
+                       stmtend
+
+grouping-stmt       =  grouping-keyword
+                       sep
+                       identifier-arg-str
+                       optsep
+                       (  ';'
+                        | '{'
+                             stmtsep
+                             # these stmts can appear in any order
+                             (status-stmt stmtsep)?
+                             (description-stmt stmtsep)?
+                             (reference-stmt stmtsep)?
+                             ((typedef-stmt |
+                                grouping-stmt) stmtsep)*
+                             (data-def-stmt stmtsep)*
+                          '}'
+                       )
+
+container-stmt      =  container-keyword
+                       sep
+                       identifier-arg-str
+                       optsep
+                       (  ';'
+                        | '{'
+                             stmtsep
+                             # these stmts can appear in any order
+                             (when-stmt stmtsep)?
+                             (if-feature-stmt stmtsep)*
+                             (must-stmt stmtsep)*
+                             (presence-stmt stmtsep)?
+                             (config-stmt stmtsep)?
+                             (status-stmt stmtsep)?
+                             (description-stmt stmtsep)?
+                             (reference-stmt stmtsep)?
+                             ((typedef-stmt | grouping-stmt) stmtsep)*
+                             (data-def-stmt stmtsep)*
+                          '}'
+                       )
+
+leaf-stmt           =  leaf-keyword
+                       sep
+                       identifier-arg-str
+                       optsep
+                       '{'
+                            stmtsep
+                            # these stmts can appear in any order
+                            (when-stmt stmtsep)?
+                            (if-feature-stmt stmtsep)*
+                            type-stmt stmtsep
+                            (units-stmt stmtsep)?
+                            (must-stmt stmtsep)*
+                            (default-stmt stmtsep)?
+                            (config-stmt stmtsep)?
+                            (mandatory-stmt stmtsep)?
+                            (status-stmt stmtsep)?
+                            (description-stmt stmtsep)?
+                            (reference-stmt stmtsep)?
+                       '}'
+
+leaf-list-stmt      =   leaf-list-keyword
+                        sep
+                        identifier-arg-str
+                        optsep
+                        '{'
+                            stmtsep
+                            # these stmts can appear in any order
+                            (when-stmt stmtsep)?
+                            (if-feature-stmt stmtsep)*
+                            type-stmt stmtsep
+                            (units-stmt stmtsep)?
+                            (must-stmt stmtsep)*
+                            (config-stmt stmtsep)?
+                            (min-elements-stmt stmtsep)?
+                            (max-elements-stmt stmtsep)?
+                            (ordered-by-stmt stmtsep)?
+                            (status-stmt stmtsep)?
+                            (description-stmt stmtsep)?
+                            (reference-stmt stmtsep)?
+                         '}'
+
+list-stmt           =   list-keyword
+                        sep
+                        identifier-arg-str
+                        optsep
+                        '{'
+                            stmtsep
+                            # these stmts can appear in any order
+                            (when-stmt stmtsep)?
+                            (if-feature-stmt stmtsep)*
+                            (must-stmt stmtsep)*
+                            (key-stmt stmtsep)?
+                            (unique-stmt stmtsep)*
+                            (config-stmt stmtsep)?
+                            (min-elements-stmt stmtsep)?
+                            (max-elements-stmt stmtsep)?
+                            (ordered-by-stmt stmtsep)?
+                            (status-stmt stmtsep)?
+                            (description-stmt stmtsep)?
+                            (reference-stmt stmtsep)?
+                            ((typedef-stmt | grouping-stmt) stmtsep)*
+                            (data-def-stmt stmtsep)*
+                         '}'
+
+key-stmt            =  key-keyword
+                       sep
+                       key-arg-str
+                       stmtend
+
+key-arg-str         =   DQUOTE key-arg DQUOTE
+                      | SQUOTE key-arg SQUOTE
+                      | key-arg
+
+key-arg             = node-identifier
+                      (sep node-identifier)*
+
+unique-stmt         =  unique-keyword
+                       sep
+                       unique-arg-str
+                       stmtend
+
+unique-arg-str      =   DQUOTE unique-arg DQUOTE
+                      | SQUOTE unique-arg SQUOTE
+                      | unique-arg
+
+unique-arg          = descendant-schema-nodeid
+                      (sep descendant-schema-nodeid)*
+
+choice-stmt         =  choice-keyword
+                       sep
+                       identifier-arg-str
+                       optsep
+                       (  ';'
+                        | '{'
+                             stmtsep
+                             # these stmts can appear in any order
+                             (when-stmt stmtsep)?
+                             (if-feature-stmt stmtsep)*
+                             (default-stmt stmtsep)?
+                             (config-stmt stmtsep)?
+                             (mandatory-stmt stmtsep)?
+                             (status-stmt stmtsep)?
+                             (description-stmt stmtsep)?
+                             (reference-stmt stmtsep)?
+                             ((short-case-stmt | case-stmt) stmtsep)*
+                          '}'
+                       )
+
+short-case-stmt     =   container-stmt
+                      | leaf-stmt
+                      | leaf-list-stmt
+                      | list-stmt
+                      | anyxml-stmt
+
+case-stmt           =  case-keyword
+                       sep
+                       identifier-arg-str
+                       optsep
+                        (  ';'
+                         | '{'
+                             stmtsep
+                             # these stmts can appear in any order
+                             (when-stmt stmtsep)?
+                             (if-feature-stmt stmtsep)*
+                             (status-stmt stmtsep)?
+                             (description-stmt stmtsep)?
+                             (reference-stmt stmtsep)?
+                             (data-def-stmt stmtsep)*
+                           '}'
+                        )
+
+anyxml-stmt         =  anyxml-keyword
+                       sep
+                       identifier-arg-str
+                       optsep
+                       (  ';'
+                        | '{'
+                             stmtsep
+                             # these stmts can appear in any order
+                             (when-stmt stmtsep)?
+                             (if-feature-stmt stmtsep)*
+                             (must-stmt stmtsep)*
+                             (config-stmt stmtsep)?
+                             (mandatory-stmt stmtsep)?
+                             (status-stmt stmtsep)?
+                             (description-stmt stmtsep)?
+                             (reference-stmt stmtsep)?
+                          '}'
+                       )
+
+uses-stmt           =  uses-keyword
+                       sep
+                       identifier-ref-arg-str
+                       optsep
+                       (  ';'
+                        | '{'
+                             stmtsep
+                             # these stmts can appear in any order
+                             (when-stmt stmtsep)?
+                             (if-feature-stmt stmtsep)*
+                             (status-stmt stmtsep)?
+                             (description-stmt stmtsep)?
+                             (reference-stmt stmtsep)?
+                             (refine-stmt stmtsep)*
+                             (uses-augment-stmt stmtsep)*
+                          '}'
+                       )
+
+refine-stmt         =  refine-keyword
+                       sep
+                       refine-arg-str
+                       optsep
+                       ( ';'
+                       | '{'
+                           stmtsep
+                           (  refine-container-stmts
+                            | refine-leaf-stmts
+                            | refine-leaf-list-stmts
+                            | refine-list-stmts
+                            | refine-choice-stmts
+                            | refine-case-stmts
+                            | refine-anyxml-stmts)
+                          '}'
+                       )
+
+refine-arg-str      =   DQUOTE refine-arg DQUOTE
+                      | SQUOTE refine-arg SQUOTE
+                      | refine-arg
+
+refine-arg          = descendant-schema-nodeid
+
+refine-container-stmts = # these stmts can appear in any order
+                            (must-stmt stmtsep)*
+                            (presence-stmt stmtsep)?
+                            (config-stmt stmtsep)?
+                            (description-stmt stmtsep)?
+                            (reference-stmt stmtsep)?
+
+refine-leaf-stmts   = # these stmts can appear in any order
+                        (must-stmt stmtsep)*
+                        (default-stmt stmtsep)?
+                        (config-stmt stmtsep)?
+                        (mandatory-stmt stmtsep)?
+                        (description-stmt stmtsep)?
+                        (reference-stmt stmtsep)?
+
+refine-leaf-list-stmts = # these stmts can appear in any order
+                        (must-stmt stmtsep)*
+                        (config-stmt stmtsep)?
+                        (min-elements-stmt stmtsep)?
+                        (max-elements-stmt stmtsep)?
+                        (description-stmt stmtsep)?
+                        (reference-stmt stmtsep)?
+
+refine-list-stmts   = # these stmts can appear in any order
+                        (must-stmt stmtsep)*
+                        (config-stmt stmtsep)?
+                        (min-elements-stmt stmtsep)?
+                        (max-elements-stmt stmtsep)?
+                        (description-stmt stmtsep)?
+                        (reference-stmt stmtsep)?
+
+refine-choice-stmts = # these stmts can appear in any order
+                        (default-stmt stmtsep)?
+                        (config-stmt stmtsep)?
+                        (mandatory-stmt stmtsep)?
+                        (description-stmt stmtsep)?
+                        (reference-stmt stmtsep)?
+
+refine-case-stmts   = # these stmts can appear in any order
+                        (description-stmt stmtsep)?
+                        (reference-stmt stmtsep)?
+
+
+refine-anyxml-stmts = # these stmts can appear in any order
+                        (must-stmt stmtsep)*
+                        (config-stmt stmtsep)?
+                        (mandatory-stmt stmtsep)?
+                        (description-stmt stmtsep)?
+                        (reference-stmt stmtsep)?
+
+uses-augment-stmt   =   augment-keyword
+                        sep
+                        uses-augment-arg-str
+                        optsep
+                        '{' stmtsep
+                            # these stmts can appear in any order
+                            (when-stmt stmtsep)?
+                            (if-feature-stmt stmtsep)*
+                            (status-stmt stmtsep)?
+                            (description-stmt stmtsep)?
+                            (reference-stmt stmtsep)?
+                            ((data-def-stmt stmtsep) | (case-stmt stmtsep))*
+                        '}'
+
+uses-augment-arg-str =   DQUOTE uses-augment-arg DQUOTE
+                       | SQUOTE uses-augment-arg SQUOTE
+                       | uses-augment-arg
+
+uses-augment-arg    = descendant-schema-nodeid
+
+augment-stmt        =  augment-keyword
+                       sep
+                       augment-arg-str
+                       optsep
+                       '{'
+                            stmtsep
+                            # these stmts can appear in any order
+                            (when-stmt stmtsep)?
+                            (if-feature-stmt stmtsep)*
+                            (status-stmt stmtsep)?
+                            (description-stmt stmtsep)?
+                            (reference-stmt stmtsep)?
+                            ((data-def-stmt stmtsep) | (case-stmt stmtsep))*
+                       '}'
+
+augment-arg-str     =  DQUOTE augment-arg DQUOTE
+                     | SQUOTE augment-arg SQUOTE
+                     | augment-arg
+
+augment-arg         = absolute-schema-nodeid
+
+unknown-statement   = prefix ':' identifier (sep string)? optsep
+                      (';' | '{' unknown-statement2* '}')
+
+unknown-statement2   = (prefix ':')? identifier (sep string)? optsep
+                       (';' | '{' unknown-statement2* '}')
+
+when-stmt           = when-keyword sep string optsep
+                    (';' |
+                     '{' stmtsep
+                         # these stmts can appear in any order
+                         (description-stmt stmtsep)?
+                         (reference-stmt stmtsep)?
+                      '}')
+
+rpc-stmt            = rpc-keyword sep identifier-arg-str optsep
+                    (';' |
+                     '{' stmtsep
+                         # these stmts can appear in any order
+                         (if-feature-stmt stmtsep)*
+                         (status-stmt stmtsep)?
+                         (description-stmt stmtsep)?
+                         (reference-stmt stmtsep)?
+                         ((typedef-stmt | grouping-stmt) stmtsep)*
+                         (input-stmt stmtsep)?
+                         (output-stmt stmtsep)?
+                     '}')
+
+input-stmt          = input-keyword optsep
+                    '{' stmtsep
+                        # these stmts can appear in any order
+                        ((typedef-stmt | grouping-stmt) stmtsep)*
+                        (data-def-stmt stmtsep)*
+                    '}'
+
+output-stmt         = output-keyword optsep
+                    '{' stmtsep
+                        # these stmts can appear in any order
+                        ((typedef-stmt | grouping-stmt) stmtsep)*
+                        (data-def-stmt stmtsep)*
+                    '}'
+
+notification-stmt   = notification-keyword sep
+                    identifier-arg-str optsep
+                    (';' |
+                     '{' stmtsep
+                         # these stmts can appear in any order
+                         (if-feature-stmt stmtsep)*
+                         (status-stmt stmtsep)?
+                         (description-stmt stmtsep)?
+                         (reference-stmt stmtsep)?
+                         ((typedef-stmt | grouping-stmt) stmtsep)*
+                         (data-def-stmt stmtsep)*
+                     '}')
+
+deviation-stmt      = deviation-keyword sep
+                      deviation-arg-str optsep
+                     '{' stmtsep
+                        # these stmts can appear in any order
+                        (description-stmt stmtsep)?
+                        (reference-stmt stmtsep)?
+                        (deviate-not-supported-stmt |
+                          (deviate-add-stmt | deviate-replace-stmt | deviate-delete-stmt)*)
+                     '}'
+
+deviation-arg-str   =   DQUOTE deviation-arg DQUOTE
+                      | SQUOTE deviation-arg SQUOTE
+                      | deviation-arg
+
+deviation-arg       = absolute-schema-nodeid
+
+deviate-not-supported-stmt = deviate-keyword sep
+                            not-supported-keyword optsep
+                            (';' |
+                             '{' stmtsep
+                             '}')
+
+deviate-add-stmt    = deviate-keyword sep add-keyword optsep
+                    (';' |
+                     '{' stmtsep
+                         (units-stmt stmtsep)?
+                         (must-stmt stmtsep)*
+                         (unique-stmt stmtsep)*
+                         (default-stmt stmtsep)?
+                         (config-stmt stmtsep)?
+                         (mandatory-stmt stmtsep)?
+                         (min-elements-stmt stmtsep)?
+                         (max-elements-stmt stmtsep)?
+                     '}')
+
+deviate-delete-stmt = deviate-keyword sep delete-keyword optsep
+                    (';' |
+                     '{' stmtsep
+                         (units-stmt stmtsep)?
+                         (must-stmt stmtsep)*
+                         (unique-stmt stmtsep)*
+                         (default-stmt stmtsep)?
+                     '}')
+
+deviate-replace-stmt = deviate-keyword sep replace-keyword optsep
+                    (';' |
+                     '{' stmtsep
+                         (type-stmt stmtsep)?
+                         (units-stmt stmtsep)?
+                         (default-stmt stmtsep)?
+                         (config-stmt stmtsep)?
+                         (mandatory-stmt stmtsep)?
+                         (min-elements-stmt stmtsep)?
+                         (max-elements-stmt stmtsep)?
+                     '}')
+
+# Ranges
+
+range-arg-str       =   DQUOTE range-arg DQUOTE
+                      | SQUOTE range-arg SQUOTE
+                      | range-arg
+
+range-arg           = range-part (optsep '|' optsep range-part)*
+
+range-part          = range-boundary
+                      (optsep '..' optsep range-boundary)*
+
+range-boundary      =   min-keyword
+                      | max-keyword
+                      | integer-value
+                      | decimal-value
+
+# Lengths
+
+length-arg-str      =   DQUOTE length-arg DQUOTE
+                      | SQUOTE length-arg SQUOTE
+                      | length-arg
+
+length-arg          = length-part (optsep '|' optsep length-part)*
+
+length-part         = length-boundary (optsep '..' optsep length-boundary)?
+
+length-boundary     =  min-keyword
+                     | max-keyword
+                     | non-negative-integer-value
+
+# Date
+
+date-arg-str        =   DQUOTE date-arg DQUOTE
+                      | SQUOTE date-arg SQUOTE
+                      | date-arg
+
+date-arg            =  < DIGIT4 '-' DIGIT2 '-' DIGIT2 >
+
+
+# Schema Node Identifiers
+
+schema-nodeid       =    absolute-schema-nodeid
+                       | descendant-schema-nodeid
+
+absolute-schema-nodeid = ('/' node-identifier)*
+
+descendant-schema-nodeid = node-identifier
+                           absolute-schema-nodeid
+
+node-identifier     = (prefix ':')? identifier
+
+
+# Instance Identifiers
+
+instance-identifier = ('/' (node-identifier *predicate))*
+
+predicate           = '[' WSP* (predicate-expr | pos) WSP* ']'
+
+predicate-expr      = (node-identifier | '.') WSP* '=' WSP*
+                      (string)
+
+pos                 = non-negative-integer-value
+
+# leafref path
+
+path-arg-str        =   DQUOTE path-arg DQUOTE
+                      | SQUOTE path-arg SQUOTE
+                      | path-arg
+
+path-arg            = absolute-path | relative-path
+
+absolute-path       = ('/' (node-identifier *path-predicate))*
+
+relative-path       = ('..' '/')* descendant-path
+
+descendant-path     = node-identifier
+                      (path-predicate* absolute-path)?
+
+path-predicate      = '[' WSP* path-equality-expr WSP* ']'
+
+path-equality-expr  = node-identifier WSP* '=' WSP* path-key-expr
+
+path-key-expr       = current-function-invocation WSP* '/' WSP*
+                      rel-path-keyexpr
+
+
+
+rel-path-keyexpr    = ('..' WSP* '/' WSP*)*
+                    (node-identifier WSP* '/' WSP*)*
+                    node-identifier
+
+#  Keywords
+
+# statement keywords
+anyxml-keyword           = 'anyxml'
+argument-keyword         = 'argument'
+augment-keyword          = 'augment'
+base-keyword             = 'base'
+belongs-to-keyword       = 'belongs-to'
+bit-keyword              = 'bit'
+case-keyword             = 'case'
+choice-keyword           = 'choice'
+config-keyword           = 'config'
+contact-keyword          = 'contact'
+container-keyword        = 'container'
+default-keyword          = 'default'
+description-keyword      = 'description'
+enum-keyword             = 'enum'
+error-app-tag-keyword    = 'error-app-tag'
+error-message-keyword    = 'error-message'
+extension-keyword        = 'extension'
+deviation-keyword        = 'deviation'
+deviate-keyword          = 'deviate'
+feature-keyword          = 'feature'
+fraction-digits-keyword  = 'fraction-digits'
+grouping-keyword         = 'grouping'
+identity-keyword         = 'identity'
+if-feature-keyword       = 'if-feature'
+import-keyword           = 'import'
+include-keyword          = 'include'
+input-keyword            = 'input'
+key-keyword              = 'key'
+leaf-keyword             = 'leaf'
+leaf-list-keyword        = 'leaf-list'
+length-keyword           = 'length'
+list-keyword             = 'list'
+mandatory-keyword        = 'mandatory'
+max-elements-keyword     = 'max-elements'
+min-elements-keyword     = 'min-elements'
+module-keyword           = 'module'
+must-keyword             = 'must'
+namespace-keyword        = 'namespace'
+notification-keyword     = 'notification'
+ordered-by-keyword       = 'ordered-by'
+organization-keyword     = 'organization'
+
+
+output-keyword           = 'output'
+path-keyword             = 'path'
+pattern-keyword          = 'pattern'
+position-keyword         = 'position'
+prefix-keyword           = 'prefix'
+presence-keyword         = 'presence'
+range-keyword            = 'range'
+reference-keyword        = 'reference'
+refine-keyword           = 'refine'
+require-instance-keyword = 'require-instance'
+revision-keyword         = 'revision'
+revision-date-keyword    = 'revision-date'
+rpc-keyword              = 'rpc'
+status-keyword           = 'status'
+submodule-keyword        = 'submodule'
+type-keyword             = 'type'
+typedef-keyword          = 'typedef'
+unique-keyword           = 'unique'
+units-keyword            = 'units'
+uses-keyword             = 'uses'
+value-keyword            = 'value'
+when-keyword             = 'when'
+yang-version-keyword     = 'yang-version'
+yin-element-keyword      = 'yin-element'
+
+# other keywords
+
+add-keyword              = 'add'
+current-keyword          = 'current'
+delete-keyword           = 'delete'
+deprecated-keyword       = 'deprecated'
+false-keyword            = 'false'
+max-keyword              = 'max'
+min-keyword              = 'min'
+not-supported-keyword    = 'not-supported'
+obsolete-keyword         = 'obsolete'
+replace-keyword          = 'replace'
+system-keyword           = 'system'
+true-keyword             = 'true'
+unbounded-keyword        = 'unbounded'
+user-keyword             = 'user'
+
+
+current-function-invocation = current-keyword WSP* '(' WSP* ')'
+
+# Basic Rules
+
+prefix-arg-str      =   DQUOTE prefix-arg DQUOTE
+                      | SQUOTE prefix-arg SQUOTE
+                      | prefix-arg
+
+prefix-arg          = prefix
+
+prefix              = identifier
+
+identifier-arg-str  =   DQUOTE < identifier-arg > DQUOTE
+                      | SQUOTE < identifier-arg > SQUOTE
+                      | < identifier-arg >
+
+identifier-arg      =  < identifier >
+
+# An identifier MUST NOT start with (('X'|'x') ('M'|'m') ('L'|'l'))
+identifier          = (ALPHA | '_')
+                      (ALPHA | DIGIT | '_' | '-' | '.')*
+
+identifier-ref-arg-str = DQUOTE identifier-ref-arg DQUOTE
+                         | SQUOTE identifier-ref-arg SQUOTE
+                         | identifier-ref-arg
+
+identifier-ref-arg  = (prefix ':')? identifier
+
+string              = WSP* (  '"' < [^\"]* > '"'
+                            | "'" < [^\']* > "'") WSP*
+
+jstring             =  (string optsep '+' optsep)* string
+
+integer-value       =    ('-' non-negative-integer-value)
+                        | non-negative-integer-value
+
+non-negative-integer-value = '0' | positive-integer-value
+
+positive-integer-value = (non-zero-digit DIGIT*)
+
+zero-integer-value  = DIGIT*
+
+stmtend             = ';' | '{' unknown-statement* '}'
+
+sep                 = (WSP | line-break)*
+                    # unconditional separator
+
+optsep              = (WSP | line-break)*
+
+stmtsep             = (WSP | line-break | unknown-statement)*
+
+line-break          = CRLF | LF
+
+comment             =    '//' (!line-break .)* line-break  # CPP/Java comment
+                       | c-comment-begin (!c-comment-end .)* c-comment-end
+
+c-comment-begin     =  '/*'
+c-comment-end       =  '*/'
+
+non-zero-digit      = [1-9]
+
+decimal-value       = integer-value ("." zero-integer-value)
+
+SQUOTE              = "'"
+                    # ' (Single Quote)
+
+# RFC 5234 core rules.
+
+ALPHA  = [a-zA-Z]
+       # A-Z | a-z
+
+CR     = '\r'
+       # carriage return
+
+CRLF   = CR LF
+       # Internet standard new line
+
+DIGIT  = [0-9]
+       # 0-9
+
+DQUOTE = '"'
+       # " (Double Quote)
+
+#HEXDIG = DIGIT | [a-f]
+       # only lower-case a..f
+
+HTAB   = '\t'
+       # horizontal tab
+
+LF     = '\n'
+       # linefeed
+
+SP     = ' '
+       # space
+
+#VCHAR  = %x21-7E
+# visible (printing) characters
+
+WSP    = (SP | HTAB | comment)
+       # whitespace
+
+DIGIT2  = [0-9][0-9]
+DIGIT4  = [0-9][0-9][0-9][0-9]
+
+%%
+
+#include "main.c"
