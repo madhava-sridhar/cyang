@@ -1,6 +1,6 @@
 # cyang
 C based Yang parser
 
-# peg/leg
+# Uses `leg`
 
-Using peg based parser generator: [`leg`](http://piumarta.com/software/peg)
+Using PEG based parser generator: [`leg`](http://piumarta.com/software/peg)
