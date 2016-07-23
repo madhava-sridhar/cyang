@@ -1,10 +1,10 @@
 /* a comment */
 // som more
 
-module m1 {
+module test1 {
 
-  namespace "mynamespace.com";
-  prefix a;
+  namespace "http://mynamespace.com/test1";
+  prefix pfx;
 
   /* Linkage stmts */
 

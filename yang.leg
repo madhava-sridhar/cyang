@@ -6,9 +6,9 @@
 yang=           (module-stmt !.) | (submodule-stmt !.)
 
 module-stmt   =   optsep
-                  module-keyword
+                  module-keyword    
                   sep
-                  identifier-arg-str    ~{ YPERROR("<module-name>"); }
+                  identifier-arg-str   @{ modname_chk(yytext); } ~{ YPERROR("<module-name>"); }
                   optsep
                   '{'
                       stmtsep
