@@ -6,7 +6,7 @@ leg:
 	$(MAKE) -C peg-0.1.16/
 
 test:
-	for i in tests/*.yang; do echo ">> Parsing $$i"; cat $$i | ./cyang; done
+	@for i in tests/*.yang; do echo ">> Parsing $$i"; ./cyang $$i; done
 clean:
 	rm -f yang.leg.c cyang
 

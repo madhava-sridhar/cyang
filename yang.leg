@@ -6,7 +6,7 @@
 yang=           (module-stmt !.) | (submodule-stmt !.)
 
 module-stmt   =   optsep
-                  module-keyword    
+                  module-keyword
                   sep
                   identifier-arg-str   @{ modname_chk(yytext); } ~{ YPERROR("<module-name>"); }
                   optsep
@@ -39,31 +39,20 @@ submodule-stmt  = optsep
                   '}'
                   optsep
 
-module-header-stmts = # these stmts can appear in any order
-                         (yang-version-stmt stmtsep)?
-                          namespace-stmt stmtsep
-                          prefix-stmt stmtsep
+module-header-stmts = (yang-version-stmt stmtsep)?
+                       namespace-stmt stmtsep
+                       prefix-stmt stmtsep
 
-submodule-header-stmts = # these stmts can appear in any order
-                        (yang-version-stmt stmtsep)?
+submodule-header-stmts = (yang-version-stmt stmtsep)?
                          belongs-to-stmt stmtsep     ~{ YPERROR("belongs-to"); }
 
-meta-stmts          = # these stmts can appear in any order
-                        #(organization-stmt stmtsep)?
-                        #(description-stmt stmtsep)?
-                       # (contact-stmt stmtsep)?
-                      #  (reference-stmt stmtsep)?
-                         organization-stmt stmtsep @{ meta_seen("organization");ensure_single(1, "organization"); }
+meta-stmts          =    organization-stmt stmtsep @{ meta_seen("organization");ensure_single(1, "organization"); }
                        | description-stmt stmtsep  @{ meta_seen("description");ensure_single(2, "description"); }
                        | contact-stmt stmtsep      @{ meta_seen("contact");ensure_single(3, "contact"); }
                        | reference-stmt stmtsep    @{ meta_seen("reference");ensure_single(4, "reference"); }
 
-linkage-stmts       = # these stmts can appear in any order
-#( import-stmt stmtsep | include-stmt stmtsep )* @{ linkage_seen(); }
-                           import-stmt stmtsep  @{ linkage_seen("import"); }
-                         | include-stmt stmtsep @{ linkage_seen("include"); }
-
-#revision-stmts      =  (revision-stmt stmtsep )*
+linkage-stmts       =   import-stmt stmtsep  @{ linkage_seen("import"); }
+                      | include-stmt stmtsep @{ linkage_seen("include"); }
 
 body-stmts          = ( ( extension-stmt
                         | feature-stmt
@@ -174,7 +163,7 @@ units-stmt          = units-keyword
 
 revision-stmt       = revision-keyword  @{ revision_seen(); }
                       sep
-                      revision-date   { revision_date_chk(yytext); }
+                      revision-date      { revision_date_chk(yytext); }
                       optsep
                       (  ';'
                        | '{'
@@ -1121,8 +1110,6 @@ namespace-keyword        = 'namespace'
 notification-keyword     = 'notification'
 ordered-by-keyword       = 'ordered-by'
 organization-keyword     = 'organization'
-
-
 output-keyword           = 'output'
 path-keyword             = 'path'
 pattern-keyword          = 'pattern'
@@ -1229,43 +1216,32 @@ non-zero-digit      = [1-9]
 
 decimal-value       = integer-value ("." zero-integer-value)
 
-SQUOTE              = "'"
-                    # ' (Single Quote)
+SQUOTE              = "'" # ' (Single Quote)
 
 # RFC 5234 core rules.
 
 ALPHA  = [a-zA-Z]
-       # A-Z | a-z
 
-CR     = '\r'
-       # carriage return
+CR     = '\r' # carriage return
 
-CRLF   = CR LF
-       # Internet standard new line
+CRLF   = CR LF # Internet standard new line
 
 DIGIT  = [0-9]
-       # 0-9
 
-DQUOTE = '"'
-       # " (Double Quote)
+DQUOTE = '"' # " (Double Quote)
 
-#HEXDIG = DIGIT | [a-f]
-       # only lower-case a..f
+#HEXDIG = DIGIT | [a-f] # only lower-case a..f
 
-HTAB   = '\t'
-       # horizontal tab
+HTAB   = '\t' # horizontal tab
 
-LF     = '\n'
-       # linefeed
+LF     = '\n' # linefeed
 
-SP     = ' '
-       # space
+SP     = ' ' # space
 
 #VCHAR  = %x21-7E
 # visible (printing) characters
 
-WSP    = (SP | HTAB | comment)
-       # whitespace
+WSP    = (SP | HTAB | comment) # whitespace
 
 DIGIT2  = [0-9][0-9]
 DIGIT4  = [0-9][0-9][0-9][0-9]
